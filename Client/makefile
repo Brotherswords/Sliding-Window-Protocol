@@ -1,6 +1,6 @@
 SOURCE	= client.c
 HEADER	= 
-OUT	= ftpc
+OUT	= client
 CC	 = gcc
 FLAGS	 = -g -Wall
 LFLAGS	 = 
