@@ -34,16 +34,36 @@ int main(int argc, char *argv[]){
     server_address.sin_port = htons(portNumber);
     server_address.sin_addr.s_addr = inet_addr(serverIP);
 
+    /*
     if (connect(sd, (struct sockaddr *)&server_address, sizeof(struct sockaddr_in)) < 0) {
         close(sd);
         perror("error connecting stream socket");
         exit(1);
     }
+    */
 
+    char buffer[18];
+    char bufferIn[BUFFSIZE];
+    char message[100];
+    char leng[4];
+    int maxLeng = 40;
+    char *strPtr1;
+    char *strPtr2;
+
+
+    int sequenceNumber = 0;
+
+    printf("Enter a message\n");
+    char *ptr = fgets(message, maxLeng, stdin);
+    int length = strlen(message);
+
+    int networkLength = ntohl(length);
+
+    rc = sendto(sd, &networkLength, sizeof(int), MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
+    
     for(;;){
         sendData(sd, server_address, from_address, from_address_len);
     }
-
 
     return 0;
 }
@@ -59,10 +79,6 @@ int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_
 
 
     int sequenceNumber = 0;
-
-    printf("Enter a message\n");
-    char *ptr = fgets(message, maxLeng, stdin);
-    int length = strlen(message);
 
     int finalSequenceNumber = sequenceNumber + length;
 
