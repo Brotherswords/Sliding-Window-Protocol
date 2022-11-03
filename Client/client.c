@@ -89,11 +89,13 @@ int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_
     int sequenceNumber = 0;
 
     while(Index1 < strlen(toSend)-1){
-
         memset (buffer, 0, 17);
+        if (Index2 >= strlen(toSend)-1){
+            sprintf(buffer, "%11d%4d%c", sequenceNumber,1,toSend[Index1]);
+        }else{
+            sprintf(buffer, "%11d%4d%c%c", sequenceNumber,2,toSend[Index1], toSend[Index2]);
+        }
         
-        sprintf(buffer, "%11d%4d%c%c", sequenceNumber,length,toSend[Index1], toSend[Index2]);
-
         printf("Index1:  %d,", Index1);
         printf("buffer %s\n", buffer);
 
@@ -103,7 +105,12 @@ int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_
 
         memset (bufferIn, 0, 11);
 
+        printf("Getting ready to send :D...\n");
+        sleep(2);
         rc = sendto(sd, &buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
+        printf("SENT!!! Waiting ...\n");
+        sleep(2);
+
         rc = recvfrom(sd, &bufferIn, 12, flags, (struct sockaddr *)&from_address,&from_address_len);
 
         sscanf(bufferIn, "%11d", &seqNumberACK);
@@ -117,7 +124,7 @@ int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_
         }
         Index1+=2;
         Index2+=2;
-        sequenceNumber+=1;
+        sequenceNumber+=2;
     }
 
     return 1;
