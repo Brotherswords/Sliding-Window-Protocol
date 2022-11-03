@@ -10,7 +10,7 @@
 
 #define BUFFSIZE 30
 
-int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_address, socklen_t from_address_len);
+int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_address, socklen_t from_address_len, char toSend[]);
 
 int main(int argc, char *argv[]){
     int sd;
@@ -53,55 +53,74 @@ int main(int argc, char *argv[]){
 
     int sequenceNumber = 0;
 
+
     printf("Enter a message\n");
     char *ptr = fgets(message, maxLeng, stdin);
-    int length = strlen(message);
+    int length = strlen(message)-1;
 
     int networkLength = ntohl(length);
 
     rc = sendto(sd, &networkLength, sizeof(int), MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
     
-    for(;;){
-        sendData(sd, server_address, from_address, from_address_len);
+    int val = 0;
+    while(val == 0){
+        val = sendData(sd, server_address, from_address, from_address_len, message);
     }
+    
 
     return 0;
 }
 
-int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_address, socklen_t from_address_len){
+int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_address, socklen_t from_address_len, char toSend[]){
     int rc = 0;
     char buffer[18];
-    char bufferIn[BUFFSIZE];
-    char message[100];
-    int maxLeng = 40;
-    char *strPtr1;
-    char *strPtr2;
+    char bufferIn[12];
 
 
+
+    printf("Enter a message\n");
+    int length = strlen(toSend)-1;
+    printf("toSend: %s\n", toSend);
+
+    int Index1 = 0;
+    int Index2 = 1; 
+
+    int seqNumberACK = 0;
     int sequenceNumber = 0;
 
-    int finalSequenceNumber = sequenceNumber + length;
+    while(Index1 < strlen(toSend)-1){
 
-    sprintf(buffer, "%11d%4d%2s", finalSequenceNumber,length,"US");
+        memset (buffer, 0, 17);
+        
+        sprintf(buffer, "%11d%4d%c%c", sequenceNumber,length,toSend[Index1], toSend[Index2]);
 
-    printf("String Length: %d\n", length);
+        printf("Index1:  %d,", Index1);
+        printf("buffer %s\n", buffer);
 
-    if(ptr == NULL){
-        perror("Error w/ fgets");
-        return 0;
+        int networkLength = (strlen(buffer));
+
+        int flags = 0;
+
+        memset (bufferIn, 0, 11);
+
+        rc = sendto(sd, &buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
+        rc = recvfrom(sd, &bufferIn, 12, flags, (struct sockaddr *)&from_address,&from_address_len);
+
+        sscanf(bufferIn, "%11d", &seqNumberACK);
+        printf("ACK for index: %d\n", seqNumberACK);
+
+
+
+        if (rc < 0){
+            perror("Error w/ sendto");
+            return 0;
+        }
+        Index1+=2;
+        Index2+=2;
+        sequenceNumber+=1;
     }
 
-    int networkLength = htons(strlen(message));
-
-
-    rc = sendto(sd, buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
-
-    if (rc < 0){
-        perror("Error w/ sendto");
-        return 0;
-    }
-
-    return 0;
+    return 1;
 
 };
 
