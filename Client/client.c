@@ -58,10 +58,8 @@ int main(int argc, char *argv[]){
 
     rc = sendto(sd, &networkLength, sizeof(int), MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
     
-    int val = 0;
-    while(val == 0){
-        val = sendData(sd, server_address, from_address, from_address_len, message);
-    }
+    sendData(sd, server_address, from_address, from_address_len, message);
+
     
 
     return 0;
@@ -73,69 +71,78 @@ int sendData(int sd, struct sockaddr_in server_address, struct sockaddr_in from_
     char bufferIn[12];
 
 
-
-    printf("Enter a message\n");
     int length = strlen(toSend)-1;
 
     int Index1 = 0;
     int Index2 = 1;
 
+    int Index1UnACKED = 0;
+    int Index2UnACKED = 1;
+
+    int lastUNACKEDSeqNumber = 0;
     int seqNumberACK = 0;
     int sequenceNumberLatest = 0;
 
-
     time_t sentTime;
     time_t currentTime;
+
     while(Index1 < strlen(toSend)-1){
         memset (buffer, 0, 17);
-        if (Index2 >= strlen(toSend)-1){
-            sprintf(buffer, "%11d%4d%c", sequenceNumberLatest,1,toSend[Index1]);
-        }else{
-            sprintf(buffer, "%11d%4d%c%c", sequenceNumberLatest,2,toSend[Index1], toSend[Index2]);
+        int i = 0;
+        //printf("Latest SEQUENCE NUMBER: %d LAST unacked number: %d \n",sequenceNumberLatest, lastUNACKEDSeqNumber);
+        while(sequenceNumberLatest - lastUNACKEDSeqNumber<=8){
+            if (Index2 >= strlen(toSend)-1){
+                sprintf(buffer, "%11d%4d%c", sequenceNumberLatest,1,toSend[Index1]);
+            }else{
+                sprintf(buffer, "%11d%4d%c%c", sequenceNumberLatest,2,toSend[Index1], toSend[Index2]);
+            }
+            int networkLength = (strlen(buffer));
+            sentTime = time(NULL);
+            rc = sendto(sd, &buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
+            Index1+=2;
+            Index2+=2;
+            sequenceNumberLatest+=2;
+            //printf("%d\n", sequenceNumberLatest);
         }
         
-        printf("Index1:  %d,", Index1);
-        printf("buffer %s\n", buffer);
+        //printf("Index1:  %d,", Index1);
+        //printf("buffer %s\n", buffer);
 
-        
-        int networkLength = (strlen(buffer));
-        //int flags = 0;
 
         memset (bufferIn, 0, 11);
 
-        //printf("Getting ready to send :D...\n");
-
-        sentTime = time(NULL);
-        rc = sendto(sd, &buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
-        //printf("SENT!!!\n");
-
+        //sentTime = time(NULL);
+        //rc = sendto(sd, &buffer, networkLength, MSG_DONTWAIT, (struct sockaddr *) &server_address,  sizeof(server_address));
+        /*
         if (rc < 0){
             perror("Error w/ sendto");
             return 0;
         }
+        */
+        
 
         rc = recvfrom(sd, &bufferIn, 12, MSG_DONTWAIT, (struct sockaddr *)&from_address,&from_address_len);
 
         if (rc > 0){
-            //printf("RC: %d\n", rc);
-            //printf("BufferIN: %s", bufferIn);
             sscanf(bufferIn, "%11d", &seqNumberACK);
-            //printf("ACK# Received: %d\n", seqNumberACK);
-            //printf("Current ACK#: %d\n", sequenceNumberLatest);
-            if (seqNumberACK == sequenceNumberLatest){
-                Index1+=2;
-                Index2+=2;
-                sequenceNumberLatest+=2;
+            //printf("SEQUENCE NUMBER ACK: %d LAST unacked number: %d \n",seqNumberACK, lastUNACKEDSeqNumber);
+            //printf("bufferIN: %s\n", bufferIn);
+            if (seqNumberACK == lastUNACKEDSeqNumber){
+                lastUNACKEDSeqNumber+=2;
+            }
+        }else{
+            currentTime = time(NULL);
+            //printf("Time delay: %ld \n", currentTime-sentTime);
+            //printf("BRUH MOMENTO IT DROPPED A PACKET :SCREAM: \n");
+            if (currentTime - sentTime > 2){
+                //printf("BRUH MOMENTO IT DROPPED A PACKET :SCREAM: \n");
+                Index1 = lastUNACKEDSeqNumber;
+                sequenceNumberLatest = lastUNACKEDSeqNumber;
+                Index2 = Index1+1;  
             }
         }
-        currentTime = time(NULL);
-        printf("Time delay: %ld \n", currentTime-sentTime);
-        if (currentTime - sentTime > 2){
-            continue;
-        }        
-
+        //currentTime = time(NULL);
     }
-
     return 1;
 
 };
